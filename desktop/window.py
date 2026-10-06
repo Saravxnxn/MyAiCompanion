@@ -11,6 +11,7 @@ from desktop.environment import DesktopEnvironment
 class CompanionWindow(QWidget):
 
     def __init__(self):
+
         super().__init__()
 
         # ==========================================
@@ -68,17 +69,22 @@ class CompanionWindow(QWidget):
         # ==========================================
 
         self.dragging = False
+
         self.drag_offset = QPoint()
 
         # ==========================================
         # ANIMATION
         # ==========================================
 
-        self.animation = AnimationController(self)
+        self.animation = AnimationController(
+            self
+        )
 
         self.setup_animations()
 
-        self.animation.frame_changed_callback = self.update
+        self.animation.frame_changed_callback = (
+            self.update
+        )
 
         # ==========================================
         # CHARACTER STATE
@@ -86,7 +92,9 @@ class CompanionWindow(QWidget):
 
         self.state = None
 
-        self.behavior = BehaviorController(self)
+        self.behavior = BehaviorController(
+            self
+        )
 
         self.set_state(
             CharacterState.WALKING
@@ -102,33 +110,34 @@ class CompanionWindow(QWidget):
             self.update_character
         )
 
-        # ~60 FPS
         self.timer.start(16)
 
         # ==========================================
         # BEHAVIOR TIMER
         # ==========================================
 
-        self.behavior_timer = QTimer(self)
+        self.behavior_timer = QTimer(
+            self
+        )
 
         self.behavior_timer.timeout.connect(
             self.update_behavior
         )
 
-        # Every 500 ms
         self.behavior_timer.start(500)
 
         # ==========================================
         # ENVIRONMENT TIMER
         # ==========================================
 
-        self.environment_timer = QTimer(self)
+        self.environment_timer = QTimer(
+            self
+        )
 
         self.environment_timer.timeout.connect(
             self.update_environment
         )
 
-        # Every 200 ms
         self.environment_timer.start(200)
 
     # ==========================================
@@ -213,7 +222,6 @@ class CompanionWindow(QWidget):
 
     def set_state(self, new_state):
 
-        # Don't restart the same animation.
         if self.state == new_state:
             return
 
@@ -241,6 +249,19 @@ class CompanionWindow(QWidget):
             self.animation.play(
                 "walk",
                 interval=120,
+                loop=True,
+                ping_pong=False
+            )
+
+        # ======================================
+        # JUMPING
+        # ======================================
+
+        elif new_state == CharacterState.JUMPING:
+
+            self.animation.play(
+                "walk",
+                interval=100,
                 loop=True,
                 ping_pong=False
             )
@@ -305,21 +326,7 @@ class CompanionWindow(QWidget):
 
         elif new_state == CharacterState.DRAGGING:
 
-            # Keep the current visual frame while dragging.
             self.animation.stop()
-
-        # ======================================
-        # JUMPING
-        # ======================================
-
-        elif new_state == CharacterState.JUMPING:
-
-            self.animation.play(
-                "walk",
-                interval=100,
-                loop=True,
-                ping_pong=False
-            )
 
     # ==========================================
     # WINDOW SETUP
@@ -385,16 +392,18 @@ class CompanionWindow(QWidget):
             + self.body_height
         )
 
+    # ==========================================
+    # JUMP TARGET
+    # ==========================================
+
     def find_jump_target(self):
 
         if self.current_surface is None:
             return None
 
-        current_surface = self.current_surface
-
-        # --------------------------------------
-        # Starting position
-        # --------------------------------------
+        current_surface = (
+            self.current_surface
+        )
 
         start_center = (
             self.body_left()
@@ -414,13 +423,8 @@ class CompanionWindow(QWidget):
 
         gravity = self.gravity
 
-        # --------------------------------------
-        # Check every detected surface
-        # --------------------------------------
-
         for surface in self.surfaces:
 
-            # Don't jump onto the same surface.
             if (
                 surface.identity
                 == current_surface.identity
@@ -442,15 +446,6 @@ class CompanionWindow(QWidget):
                 - start_bottom
             )
 
-            # ----------------------------------
-            # Ballistic reachability
-            #
-            # y = -Vt + 1/2gt²
-            #
-            # discriminant:
-            # V² + 2g*dy
-            # ----------------------------------
-
             discriminant = (
                 jump_speed ** 2
                 + 2 * gravity * dy
@@ -463,7 +458,6 @@ class CompanionWindow(QWidget):
                 discriminant ** 0.5
             )
 
-            # Falling branch of the trajectory.
             flight_time = (
                 jump_speed
                 + sqrt_value
@@ -472,26 +466,15 @@ class CompanionWindow(QWidget):
             if flight_time <= 0:
                 continue
 
-            # ----------------------------------
-            # Required horizontal velocity
-            # ----------------------------------
-
             required_velocity_x = (
                 dx / flight_time
             )
 
-            # ----------------------------------
-            # Too far horizontally
-            # ----------------------------------
+            if abs(
+                required_velocity_x
+            ) > self.max_jump_horizontal_speed:
 
-            if abs(required_velocity_x) > (
-                self.max_jump_horizontal_speed
-            ):
                 continue
-
-            # ----------------------------------
-            # Prefer nearby surfaces
-            # ----------------------------------
 
             score = (
                 abs(dx)
@@ -505,24 +488,25 @@ class CompanionWindow(QWidget):
 
                 best_target = {
                     "surface": surface,
-                    "velocity_x": required_velocity_x,
-                    "flight_time": flight_time
+                    "velocity_x":
+                        required_velocity_x,
+                    "flight_time":
+                        flight_time
                 }
 
                 best_score = score
 
         return best_target
+
     # ==========================================
-    # PHYSICS
+    # JUMP
     # ==========================================
 
     def jump(self):
 
-        # Must be standing on a surface.
         if self.current_surface is None:
             return False
 
-        # Don't jump while airborne or dragging.
         if self.state in (
             CharacterState.JUMPING,
             CharacterState.FALLING,
@@ -530,37 +514,24 @@ class CompanionWindow(QWidget):
         ):
             return False
 
-        # --------------------------------------
-        # Find a reachable target.
-        # --------------------------------------
+        target = (
+            self.find_jump_target()
+        )
 
-        target = self.find_jump_target()
-
-        # No reachable surface.
         if target is None:
             return False
 
-        self.jump_target = target["surface"]
-
-        # --------------------------------------
-        # Vertical jump impulse
-        # --------------------------------------
+        self.jump_target = (
+            target["surface"]
+        )
 
         self.velocity_y = (
             self.jump_velocity_y
         )
 
-        # --------------------------------------
-        # Horizontal velocity toward target
-        # --------------------------------------
-
         self.velocity_x = (
             target["velocity_x"]
         )
-
-        # --------------------------------------
-        # Leave current surface
-        # --------------------------------------
 
         self.current_surface = None
 
@@ -573,16 +544,15 @@ class CompanionWindow(QWidget):
 
         return True
 
-    def update_position(self):
+    # ==========================================
+    # PHYSICS
+    # ==========================================
 
-        # --------------------------------------
-        # Don't apply physics while dragging
-        # --------------------------------------
+    def update_position(self):
 
         if self.dragging:
             return
 
-        # Current window position.
         x = self.x()
         y = self.y()
 
@@ -610,7 +580,9 @@ class CompanionWindow(QWidget):
             self.body_bottom()
         )
 
-        self.velocity_y += self.gravity
+        self.velocity_y += (
+            self.gravity
+        )
 
         y += self.velocity_y
 
@@ -619,6 +591,20 @@ class CompanionWindow(QWidget):
             + self.body_offset_y
             + self.body_height
         )
+
+        # ======================================
+        # JUMP → FALL
+        # ======================================
+
+        if (
+            self.state
+            == CharacterState.JUMPING
+            and self.velocity_y >= 0
+        ):
+
+            self.set_state(
+                CharacterState.FALLING
+            )
 
         # ======================================
         # FIND LANDING SURFACE
@@ -633,65 +619,99 @@ class CompanionWindow(QWidget):
             )
 
         # ======================================
-        # JUMP → FALL TRANSITION
-        # ======================================
-
-        if (
-            self.state == CharacterState.JUMPING
-            and self.velocity_y >= 0
-        ):
-
-            self.set_state(
-                CharacterState.FALLING
-            )
-
-        # ======================================
-        # CURRENT SCREEN
+        # SCREEN
         # ======================================
 
         screen = (
-            self.screen().availableGeometry()
+            self.screen()
+            .availableGeometry()
         )
 
-        # Horizontal limit of physics body.
         max_x = (
             screen.width()
-            - self.body_offset_x
-            - self.body_width
+            - self.width()
         )
 
         # ======================================
-        # SURFACE / SCREEN HORIZONTAL LOGIC
+        # SURFACE MOVEMENT
         # ======================================
 
         if self.current_surface is not None:
 
-            surface = self.current_surface
-
-            # ----------------------------------
-            # Surface body boundaries
-            # ----------------------------------
-
-            min_x = (
-                surface.left
-                - self.body_offset_x
+            surface = (
+                self.current_surface
             )
 
-            max_surface_x = (
-                surface.right
-                - self.body_offset_x
-                - self.body_width
+            # ----------------------------------
+            # Check whether the surface is still
+            # actually visible at the cat's
+            # current position.
+            # ----------------------------------
+
+            body_center = (
+                self.body_left()
+                + self.body_width / 2
             )
 
-            # ==================================
-            # LEFT EDGE
-            # ==================================
+            visible_surface = (
+                self.environment
+                .get_top_surface_at(
+                    body_center,
+                    surface.top + 2
+                )
+            )
 
-            if x <= min_x:
+            if (
+                visible_surface is None
+                or visible_surface.identity
+                != surface.identity
+            ):
 
-                # Only fall if actually walking
-                # toward the left edge.
-                if self.velocity_x < 0:
+                # The window is currently hidden
+                # by another window.
+                self.current_surface = None
+
+                self.previous_surface_x = None
+                self.previous_surface_y = None
+
+                self.velocity_y = 0
+
+                self.set_state(
+                    CharacterState.FALLING
+                )
+
+            else:
+
+                # --------------------------------
+                # Visible surface boundaries
+                # --------------------------------
+
+                surface_left = (
+                    surface.left
+                )
+
+                surface_right = (
+                    surface.right
+                )
+
+                next_left = x
+
+                next_right = (
+                    x
+                    + self.width()
+                )
+
+                # ==============================
+                # LEFT EDGE
+                # ==============================
+
+                if (
+                    self.velocity_x < 0
+                    and next_left
+                    <= surface_left
+                ):
+
+                    x = surface_left
 
                     self.current_surface = None
 
@@ -704,19 +724,20 @@ class CompanionWindow(QWidget):
                         CharacterState.FALLING
                     )
 
-                else:
+                # ==============================
+                # RIGHT EDGE
+                # ==============================
 
-                    x = min_x
+                elif (
+                    self.velocity_x > 0
+                    and next_right
+                    >= surface_right
+                ):
 
-            # ==================================
-            # RIGHT EDGE
-            # ==================================
-
-            elif x >= max_surface_x:
-
-                # Only fall if actually walking
-                # toward the right edge.
-                if self.velocity_x > 0:
+                    x = (
+                        surface_right
+                        - self.width()
+                    )
 
                     self.current_surface = None
 
@@ -729,15 +750,15 @@ class CompanionWindow(QWidget):
                         CharacterState.FALLING
                     )
 
-                else:
-
-                    x = max_surface_x
+        # ======================================
+        # NO CURRENT SURFACE
+        # ======================================
 
         else:
 
-            # ==================================
-            # MONITOR BOUNDARIES
-            # ==================================
+            # ----------------------------------
+            # Monitor horizontal limits
+            # ----------------------------------
 
             if x <= 0:
 
@@ -756,19 +777,20 @@ class CompanionWindow(QWidget):
                 )
 
         # ======================================
-        # SURFACE COLLISION
+        # LANDING
         # ======================================
 
         if (
             landing_surface is not None
             and previous_bottom
-                <= landing_surface.top
+            <= landing_surface.top
             and next_bottom
-                >= landing_surface.top
+            >= landing_surface.top
         ):
 
-            # The physics body's bottom must
-            # touch the surface top.
+            x = self.x() + (
+                x - self.x()
+            )
 
             y = (
                 landing_surface.top
@@ -784,7 +806,6 @@ class CompanionWindow(QWidget):
 
             self.jump_target = None
 
-            # Reset surface tracking.
             self.previous_surface_x = (
                 landing_surface.x
             )
@@ -793,19 +814,48 @@ class CompanionWindow(QWidget):
                 landing_surface.y
             )
 
-            # If falling, begin walking again.
-            if self.state == CharacterState.FALLING:
+            if self.state in (
+                CharacterState.FALLING,
+                CharacterState.JUMPING,
+            ):
 
                 self.set_state(
                     CharacterState.WALKING
                 )
 
+            # Debug information
+            title = ""
+
+            if (
+                landing_surface.source_window
+                is not None
+            ):
+
+                title = (
+                    landing_surface
+                    .source_window
+                    .get(
+                        "title",
+                        ""
+                    )
+                )
+
+            print(
+                "Landed on:",
+                title,
+                "|",
+                landing_surface.left,
+                landing_surface.top,
+                landing_surface.right
+            )
+
         # ======================================
-        # SCREEN FLOOR FALLBACK
+        # SCREEN FLOOR
         # ======================================
 
         screen = (
-            self.screen().availableGeometry()
+            self.screen()
+            .availableGeometry()
         )
 
         max_y = (
@@ -821,10 +871,14 @@ class CompanionWindow(QWidget):
 
             self.current_surface = None
 
+            self.jump_target = None
+
             self.previous_surface_x = None
             self.previous_surface_y = None
 
-            if self.state == CharacterState.FALLING:
+            if self.state == (
+                CharacterState.FALLING
+            ):
 
                 self.set_state(
                     CharacterState.WALKING
@@ -838,6 +892,156 @@ class CompanionWindow(QWidget):
             x,
             y
         )
+
+    # ==========================================
+    # FIND LANDING SURFACE
+    # ==========================================
+
+    def find_landing_surface(self, next_y):
+
+        character_left = (
+            self.body_left()
+        )
+
+        character_right = (
+            self.body_right()
+        )
+
+        character_center = (
+            character_left
+            + character_right
+        ) / 2
+
+        previous_bottom = (
+            self.body_bottom()
+        )
+
+        next_bottom = (
+            next_y
+            + self.body_offset_y
+            + self.body_height
+        )
+
+        candidates = []
+
+        for surface in self.surfaces:
+
+            # ==================================
+            # Horizontal overlap
+            # ==================================
+
+            if not (
+                character_right
+                > surface.left
+                and
+                character_left
+                < surface.right
+            ):
+
+                continue
+
+            # ==================================
+            # Body center must be over surface
+            # ==================================
+
+            if not (
+                surface.left
+                <= character_center
+                <= surface.right
+            ):
+
+                continue
+
+            # ==================================
+            # Must cross top
+            # ==================================
+
+            crossed_surface = (
+                previous_bottom
+                <= surface.top
+                and
+                next_bottom
+                >= surface.top
+            )
+
+            if not crossed_surface:
+                continue
+
+            # ==================================
+            # Check topmost visible surface
+            # ==================================
+
+            visible_surface = (
+                self.environment
+                .get_top_surface_at(
+                    character_center,
+                    surface.top + 2
+                )
+            )
+
+            if visible_surface is None:
+                continue
+
+            if (
+                visible_surface.identity
+                != surface.identity
+            ):
+
+                continue
+
+            # ==================================
+            # Distance
+            # ==================================
+
+            distance = (
+                surface.top
+                - previous_bottom
+            )
+
+            if distance < 0:
+                continue
+
+            candidates.append(
+                (
+                    surface,
+                    distance
+                )
+            )
+
+        if not candidates:
+            return None
+
+        # ======================================
+        # Nearest surface
+        # ======================================
+
+        nearest_distance = min(
+            distance
+            for _, distance
+            in candidates
+        )
+
+        nearest = [
+            (
+                surface,
+                distance
+            )
+            for surface, distance
+            in candidates
+            if distance
+            == nearest_distance
+        ]
+
+        # ======================================
+        # Topmost window if distances equal
+        # ======================================
+
+        nearest.sort(
+            key=lambda item:
+                item[0].z_order
+        )
+
+        return nearest[0][0]
 
     # ==========================================
     # MOUSE PRESS
@@ -854,6 +1058,8 @@ class CompanionWindow(QWidget):
 
             self.current_surface = None
 
+            self.jump_target = None
+
             self.previous_surface_x = None
             self.previous_surface_y = None
 
@@ -862,8 +1068,10 @@ class CompanionWindow(QWidget):
             )
 
             self.drag_offset = (
-                event.globalPosition().toPoint()
-                - self.frameGeometry().topLeft()
+                event.globalPosition()
+                .toPoint()
+                - self.frameGeometry()
+                .topLeft()
             )
 
             event.accept()
@@ -877,7 +1085,8 @@ class CompanionWindow(QWidget):
         if self.dragging:
 
             new_position = (
-                event.globalPosition().toPoint()
+                event.globalPosition()
+                .toPoint()
                 - self.drag_offset
             )
 
@@ -904,6 +1113,8 @@ class CompanionWindow(QWidget):
 
             self.current_surface = None
 
+            self.jump_target = None
+
             self.previous_surface_x = None
             self.previous_surface_y = None
 
@@ -922,7 +1133,8 @@ class CompanionWindow(QWidget):
         painter = QPainter(self)
 
         pixmap = (
-            self.animation.get_current_frame()
+            self.animation
+            .get_current_frame()
         )
 
         if pixmap is None:
@@ -937,113 +1149,45 @@ class CompanionWindow(QWidget):
         painter.end()
 
     # ==========================================
-    # FIND LANDING SURFACE
-    # ==========================================
-
-    def find_landing_surface(self, next_y):
-
-        character_left = self.body_left()
-        character_right = self.body_right()
-
-        previous_bottom = self.body_bottom()
-
-        next_bottom = (
-            next_y
-            + self.body_offset_y
-            + self.body_height
-        )
-
-        best_surface = None
-        best_distance = None
-
-        for surface in self.surfaces:
-
-            # ======================================
-            # 1. Horizontal overlap
-            # ======================================
-
-            horizontal_overlap = (
-                character_right > surface.left
-                and character_left < surface.right
-            )
-
-            if not horizontal_overlap:
-                continue
-
-            # ======================================
-            # 2. Surface must be below the feet
-            #    and crossed during this physics step
-            # ======================================
-
-            crossed_surface = (
-                previous_bottom <= surface.top
-                and next_bottom >= surface.top
-            )
-
-            if not crossed_surface:
-                continue
-
-            # ======================================
-            # 3. Distance from current feet
-            # ======================================
-
-            distance = (
-                surface.top
-                - previous_bottom
-            )
-
-            # Safety check
-            if distance < 0:
-                continue
-
-            # ======================================
-            # 4. Choose nearest surface
-            # ======================================
-
-            if (
-                best_surface is None
-                or distance < best_distance
-            ):
-
-                best_surface = surface
-                best_distance = distance
-
-        return best_surface
-
-    # ==========================================
-    # UPDATE ENVIRONMENT
+    # ENVIRONMENT UPDATE
     # ==========================================
 
     def update_environment(self):
 
         self.surfaces = (
-            self.environment.get_surfaces()
+            self.environment
+            .get_surfaces()
         )
 
         if self.current_surface is None:
             return
 
         current_identity = (
-            self.current_surface.identity
+            self.current_surface
+            .identity
         )
 
         matching_surface = None
 
         for surface in self.surfaces:
 
-            if surface.identity == current_identity:
+            if (
+                surface.identity
+                == current_identity
+            ):
 
                 matching_surface = surface
 
                 break
 
         # ======================================
-        # SURFACE DISAPPEARED
+        # Current window disappeared
         # ======================================
 
         if matching_surface is None:
 
             self.current_surface = None
+
             self.jump_target = None
 
             self.previous_surface_x = None
@@ -1061,10 +1205,13 @@ class CompanionWindow(QWidget):
             return
 
         # ======================================
-        # FIRST TIME TRACKING SURFACE
+        # First surface tracking
         # ======================================
 
-        if self.previous_surface_x is None:
+        if (
+            self.previous_surface_x
+            is None
+        ):
 
             self.previous_surface_x = (
                 matching_surface.x
@@ -1077,7 +1224,7 @@ class CompanionWindow(QWidget):
         else:
 
             # ==================================
-            # DETECT WINDOW MOVEMENT
+            # Window movement
             # ==================================
 
             delta_x = (
@@ -1090,23 +1237,17 @@ class CompanionWindow(QWidget):
                 - self.previous_surface_y
             )
 
-            # ==================================
-            # MOVE CHARACTER WITH WINDOW
-            # ==================================
-
             if self.state not in (
                 CharacterState.FALLING,
                 CharacterState.DRAGGING,
             ):
 
                 self.move(
-                    self.x() + delta_x,
-                    self.y() + delta_y
+                    self.x()
+                    + delta_x,
+                    self.y()
+                    + delta_y
                 )
-
-            # ==================================
-            # SAVE NEW SURFACE POSITION
-            # ==================================
 
             self.previous_surface_x = (
                 matching_surface.x
@@ -1117,7 +1258,7 @@ class CompanionWindow(QWidget):
             )
 
         # ======================================
-        # UPDATE CURRENT SURFACE
+        # Update current surface reference
         # ======================================
 
         self.current_surface = (

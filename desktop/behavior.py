@@ -29,6 +29,7 @@ class BehaviorController:
             CharacterState.JUMPING,
             CharacterState.DRAGGING,
             CharacterState.TALKING,
+            CharacterState.CLIMBING
         ):
             return
 
@@ -63,6 +64,9 @@ class BehaviorController:
 
             self.start_jumping()
 
+        elif choice < 0.97:
+            self.start_climbing()
+
         else:
 
             self.start_sleeping()
@@ -86,6 +90,24 @@ class BehaviorController:
         self.state_duration = random.randint(
             3,
             6
+        )
+
+
+    def start_climbing(self):
+
+        climbed = (
+            self.character.start_climbing()
+        )
+
+        if not climbed:
+
+            self.start_walking()
+
+            return
+
+        self.state_duration = random.randint(
+            5,
+            12
         )
     # -----------------------------------------
     # Walking
