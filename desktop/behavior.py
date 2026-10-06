@@ -69,14 +69,19 @@ class BehaviorController:
 
     def start_jumping(self):
 
-        # Jump only when standing on a surface.
         if self.character.current_surface is None:
 
             self.start_walking()
 
             return
 
-        self.character.jump()
+        jumped = self.character.jump()
+
+        if not jumped:
+
+            self.start_walking()
+
+            return
 
         self.state_duration = random.randint(
             3,

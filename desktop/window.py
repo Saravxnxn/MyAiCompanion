@@ -44,6 +44,16 @@ class CompanionWindow(QWidget):
         self.gravity = 0.5
 
         # ==========================================
+        # JUMP PHYSICS
+        # ==========================================
+
+        self.jump_velocity_y = -8.5
+
+        self.max_jump_horizontal_speed = 4.0
+
+        self.jump_target = None
+
+        # ==========================================
         # PHYSICS BODY
         # ==========================================
 
@@ -375,28 +385,183 @@ class CompanionWindow(QWidget):
             + self.body_height
         )
 
+    def find_jump_target(self):
+
+        if self.current_surface is None:
+            return None
+
+        current_surface = self.current_surface
+
+        # --------------------------------------
+        # Starting position
+        # --------------------------------------
+
+        start_center = (
+            self.body_left()
+            + self.body_width / 2
+        )
+
+        start_bottom = (
+            current_surface.top
+        )
+
+        best_target = None
+        best_score = None
+
+        jump_speed = abs(
+            self.jump_velocity_y
+        )
+
+        gravity = self.gravity
+
+        # --------------------------------------
+        # Check every detected surface
+        # --------------------------------------
+
+        for surface in self.surfaces:
+
+            # Don't jump onto the same surface.
+            if (
+                surface.identity
+                == current_surface.identity
+            ):
+                continue
+
+            target_center = (
+                surface.left
+                + surface.width / 2
+            )
+
+            dx = (
+                target_center
+                - start_center
+            )
+
+            dy = (
+                surface.top
+                - start_bottom
+            )
+
+            # ----------------------------------
+            # Ballistic reachability
+            #
+            # y = -Vt + 1/2gt²
+            #
+            # discriminant:
+            # V² + 2g*dy
+            # ----------------------------------
+
+            discriminant = (
+                jump_speed ** 2
+                + 2 * gravity * dy
+            )
+
+            if discriminant <= 0:
+                continue
+
+            sqrt_value = (
+                discriminant ** 0.5
+            )
+
+            # Falling branch of the trajectory.
+            flight_time = (
+                jump_speed
+                + sqrt_value
+            ) / gravity
+
+            if flight_time <= 0:
+                continue
+
+            # ----------------------------------
+            # Required horizontal velocity
+            # ----------------------------------
+
+            required_velocity_x = (
+                dx / flight_time
+            )
+
+            # ----------------------------------
+            # Too far horizontally
+            # ----------------------------------
+
+            if abs(required_velocity_x) > (
+                self.max_jump_horizontal_speed
+            ):
+                continue
+
+            # ----------------------------------
+            # Prefer nearby surfaces
+            # ----------------------------------
+
+            score = (
+                abs(dx)
+                + abs(dy) * 0.5
+            )
+
+            if (
+                best_target is None
+                or score < best_score
+            ):
+
+                best_target = {
+                    "surface": surface,
+                    "velocity_x": required_velocity_x,
+                    "flight_time": flight_time
+                }
+
+                best_score = score
+
+        return best_target
     # ==========================================
     # PHYSICS
     # ==========================================
 
     def jump(self):
 
-        # Character must be standing on something.
+        # Must be standing on a surface.
         if self.current_surface is None:
-            return
+            return False
 
-        # Don't jump while already jumping/falling/dragging.
+        # Don't jump while airborne or dragging.
         if self.state in (
             CharacterState.JUMPING,
             CharacterState.FALLING,
             CharacterState.DRAGGING,
         ):
-            return
+            return False
 
-        # Give the character upward velocity.
-        self.velocity_y = -8.5
+        # --------------------------------------
+        # Find a reachable target.
+        # --------------------------------------
 
-        # No longer considered grounded.
+        target = self.find_jump_target()
+
+        # No reachable surface.
+        if target is None:
+            return False
+
+        self.jump_target = target["surface"]
+
+        # --------------------------------------
+        # Vertical jump impulse
+        # --------------------------------------
+
+        self.velocity_y = (
+            self.jump_velocity_y
+        )
+
+        # --------------------------------------
+        # Horizontal velocity toward target
+        # --------------------------------------
+
+        self.velocity_x = (
+            target["velocity_x"]
+        )
+
+        # --------------------------------------
+        # Leave current surface
+        # --------------------------------------
+
         self.current_surface = None
 
         self.previous_surface_x = None
@@ -405,6 +570,8 @@ class CompanionWindow(QWidget):
         self.set_state(
             CharacterState.JUMPING
         )
+
+        return True
 
     def update_position(self):
 
@@ -614,6 +781,8 @@ class CompanionWindow(QWidget):
             self.current_surface = (
                 landing_surface
             )
+
+            self.jump_target = None
 
             # Reset surface tracking.
             self.previous_surface_x = (
@@ -875,6 +1044,7 @@ class CompanionWindow(QWidget):
         if matching_surface is None:
 
             self.current_surface = None
+            self.jump_target = None
 
             self.previous_surface_x = None
             self.previous_surface_y = None
