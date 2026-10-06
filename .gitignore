@@ -1,0 +1,34 @@
+# Virtual environment
+.venv
+venv
+env
+
+# Python cache
+__pycache__
+.py[cod]
+
+# VS Code
+.vscode
+
+# Environment  secrets
+.env
+.env.
+!.env.example
+
+# Logs
+.log
+
+# Build output
+build
+dist
+
+# PyInstaller
+.spec
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+.tmp
+.temp
